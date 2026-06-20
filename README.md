@@ -4,9 +4,6 @@ A secure, production-ready integration platform that validates loan applicants
 against the **RiskShield** vendor API and returns a risk score. Built for the
 Pollinate Platform Engineering Technical Assessment.
 
-> **New to all this?** Start with the step-by-step guides in [`docs/`](docs/).
-> They explain every concept and command from first principles.
-
 ---
 
 ## What it does

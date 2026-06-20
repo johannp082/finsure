@@ -18,7 +18,7 @@ secrets.*
 *.tfstate.*
 crash.log
 crash.*.log
-*.tfvars
+!*.tfvars
 !*.tfvars.example
 override.tf
 override.tf.json

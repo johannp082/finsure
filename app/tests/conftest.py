@@ -1,7 +1,4 @@
 """Shared pytest fixtures.
-
-`build_client` lets each test spin up the app with specific environment settings
-(e.g. mock mode on/off, custom retry counts) and returns a FastAPI TestClient.
 """
 
 import importlib

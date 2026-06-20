@@ -1,7 +1,4 @@
 """Request/response data models (the API "contract").
-
-Pydantic validates incoming JSON against these shapes automatically and returns
-a clean 422 error if the client sends something invalid.
 """
 
 from pydantic import BaseModel, Field

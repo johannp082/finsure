@@ -168,7 +168,7 @@ to the storage account name from the bootstrap output.
 ## 4. Security in the pipeline (what's evaluated)
 
 - **No static credentials**: auth via service connection (federated identity).
-- **Secret handling**: `RISKSHIELD_API_KEY` is a secret variable, masked in logs,
+- **Secret handling**: Is a secret variable, masked in logs,
   written straight to Key Vault — never echoed.
 - **Image scanning**: Trivy scans for HIGH/CRITICAL CVEs before deploy.
 - **Separate environments**: isolated dev/prod with their own state, infra, and

@@ -1,7 +1,3 @@
-# ──────────────────────────────────────────────────────────────────────────
-# Build stage template: test -> build image -> scan -> push to ACR.
-# Reused by the main pipeline. Parameters keep it environment-agnostic.
-# ──────────────────────────────────────────────────────────────────────────
 parameters:
   - name: serviceConnection   # Azure Resource Manager service connection name
     type: string

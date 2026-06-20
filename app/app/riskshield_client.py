@@ -1,10 +1,4 @@
 """Client for the RiskShield vendor API, with production-grade resilience.
-
-Features:
-  - Timeout on every call (config.http_timeout_seconds).
-  - Automatic retry with exponential backoff on transient failures only.
-  - Correlation ID propagated to the vendor for end-to-end tracing.
-  - A built-in mock so the service runs with zero external dependencies.
 """
 
 import logging

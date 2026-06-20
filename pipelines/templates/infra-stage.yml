@@ -1,8 +1,3 @@
-# ──────────────────────────────────────────────────────────────────────────
-# Infrastructure stage template: terraform init -> plan -> apply.
-# Targets an Azure DevOps "Environment" so approvals/checks apply (e.g. a
-# manual approval gate on prod).
-# ──────────────────────────────────────────────────────────────────────────
 parameters:
   - name: environmentName     # logical env: dev | prod
     type: string

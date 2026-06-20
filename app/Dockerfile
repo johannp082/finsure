@@ -1,11 +1,3 @@
-# ──────────────────────────────────────────────────────────────────────────
-# Multi-stage build.
-#
-# WHY multi-stage? The "builder" stage installs dependencies (which needs extra
-# tooling). The final "runtime" stage copies ONLY the finished result. The build
-# tools never ship in the final image -> smaller image + smaller attack surface.
-# ──────────────────────────────────────────────────────────────────────────
-
 # ── Stage 1: builder ───────────────────────────────────────────────────────
 FROM python:3.13-slim AS builder
 

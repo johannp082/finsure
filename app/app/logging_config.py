@@ -1,8 +1,4 @@
 """Structured (JSON) logging with per-request correlation IDs.
-
-Why JSON? Azure Log Analytics / Application Insights can index and query
-structured fields. Why correlation IDs? They let you trace a single request
-across every log line it produces.
 """
 
 import json

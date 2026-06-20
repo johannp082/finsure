@@ -1,10 +1,4 @@
 """Application configuration.
-
-All settings are loaded from environment variables (the "12-factor" approach).
-This means the SAME code runs locally and in Azure — only the env vars change.
-
-Locally you can place values in a `.env` file (never committed — see .gitignore).
-In Azure, these are injected by the Container App / pulled from Key Vault.
 """
 
 from functools import lru_cache

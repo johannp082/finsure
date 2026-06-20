@@ -1,6 +1,4 @@
 """FastAPI application entry point.
-
-Wires together config, logging, the RiskShield client and the HTTP endpoints.
 """
 
 import time

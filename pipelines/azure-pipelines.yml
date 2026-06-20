@@ -1,21 +1,3 @@
-# ══════════════════════════════════════════════════════════════════════════
-# CI/CD pipeline for the Vendor Payment Risk Scoring Integration.
-#
-# Flow:  Infra(dev) -> Build/Test/Scan/Push -> Deploy(dev)
-#                   -> Infra(prod, manual approval) -> Deploy(prod)
-#
-# We provision infrastructure before building so the ACR exists to receive the
-# image. The three required stage types (Build, Infrastructure, Deploy) are all
-# present and reused per environment via templates.
-#
-# PREREQUISITES (configure once in Azure DevOps — see docs/04-pipeline.md):
-#   - Service connection (Azure Resource Manager) named below.
-#   - Environments "dev" and "prod"; add a manual approval check on "prod".
-#   - Variable group "riskscore-secrets" with secret RISKSHIELD_API_KEY
-#     (ideally linked to Key Vault).
-#   - Edit the parameter defaults below (tfStateStorage especially).
-# ══════════════════════════════════════════════════════════════════════════
-
 parameters:
   - name: serviceConnection
     type: string

@@ -76,7 +76,7 @@ returns the score. Everything is observed via **Log Analytics / App Insights**.
 │   └── environments/   #   dev/prod tfvars + backend configs
 ├── pipelines/          # Azure DevOps CI/CD (build → infra → deploy)
 │   └── templates/      #   reusable build/infra/deploy stage templates
-└── docs/               # Step-by-step learning guides (start here!)
+└──
 ```
 
 ---
@@ -95,8 +95,6 @@ returns the score. Everything is observed via **Log Analytics / App Insights**.
 ---
 
 ## Run locally (quick start)
-
-> Full walkthrough: [`docs/01-application.md`](docs/01-application.md)
 
 ```powershell
 cd app
@@ -124,9 +122,6 @@ Run the tests: `pytest` (from `app/`). Run in Docker: see
 
 ## Deploy to Azure (quick start)
 
-> Full walkthrough: [`docs/03-terraform.md`](docs/03-terraform.md) and
-> [`docs/04-pipeline.md`](docs/04-pipeline.md)
-
 ```powershell
 # 1. One-time: create remote-state storage
 cd terraform/bootstrap
@@ -147,14 +142,11 @@ terraform output app_url
 ```
 
 For automated deployment, set up the Azure DevOps pipeline
-([`docs/04-pipeline.md`](docs/04-pipeline.md)).
+
 
 ---
 
 ## Security considerations
-
-Highlights (full details + STRIDE threat model in
-[`docs/05-security.md`](docs/05-security.md)):
 
 - **Secrets in Key Vault**, retrieved via **Managed Identity** — none in code,
   image, or Terraform state.
@@ -165,23 +157,3 @@ Highlights (full details + STRIDE threat model in
 - **No static credentials** in the pipeline (federated service connection).
 
 ---
-
-## Trade-offs
-
-| Decision | Rationale | Production alternative |
-|----------|-----------|------------------------|
-| `use_mock=true` in Azure | RiskShield is fictional, so smoke tests pass | `use_mock=false` + real vendor + real key |
-| Public network on KV/ACR | Easy deploy from laptop/pipeline | Private endpoints + deny public |
-| No auth on `/validate` | Out of assessment scope | Azure AD / APIM gateway |
-| Secret seeded as placeholder in TF | Keep real key out of state | Pipeline sets real value into Key Vault |
-| Infra runs before Build in pipeline | ACR must exist to receive images | Separate infra pipeline run less frequently |
-
----
-
-## Learning guides (read in order)
-
-1. [The Application Layer](docs/01-application.md)
-2. [Containerisation with Docker](docs/02-docker.md)
-3. [Infrastructure as Code with Terraform](docs/03-terraform.md)
-4. [CI/CD with Azure DevOps](docs/04-pipeline.md)
-5. [Security & Threat Model](docs/05-security.md)

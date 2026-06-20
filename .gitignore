@@ -7,7 +7,10 @@
 *.pem
 *.key
 *.pfx
-secrets.*
+# Scoped to data files only — must NOT match source like secret_resolver.py
+secrets.json
+secrets.yaml
+secrets.yml
 **/local.settings.json
 
 # ─────────────────────────────────────────────────────────────

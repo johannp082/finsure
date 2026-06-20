@@ -18,7 +18,7 @@ from .logging_config import (
 )
 from .models import ErrorResponse, ValidateRequest, ValidateResponse
 from .riskshield_client import RiskShieldClient, RiskShieldError
-from .secrets import SecretResolutionError, resolve_api_key
+from .secret_resolver import SecretResolutionError, resolve_api_key
 
 logger = get_logger("app.main")
 

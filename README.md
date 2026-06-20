@@ -91,7 +91,7 @@ returns the score. Everything is observed via **Log Analytics / App Insights**.
 
 ---
 
-## Run locally (quick start)
+## Run locally
 
 ```powershell
 cd app
@@ -116,7 +116,7 @@ Run the tests: `pytest` (from `app/`). Run in Docker
 
 ---
 
-## Deploy to Azure (quick start)
+## Deploy to Azure
 
 ```powershell
 # 1. One-time: create remote-state storage
@@ -129,12 +129,22 @@ cd ..
 copy environments\dev.tfvars.example environments\dev.tfvars
 copy environments\dev.backend.hcl.example environments\dev.backend.hcl
 
-# 3. Provision dev
-terraform init -backend-config=environments/dev.backend.hcl
-terraform apply -var-file=environments/dev.tfvars
+# 3. Configure prod env files (fill in subscription + storage account)
+cd ..
+copy environments\prod.tfvars.example environments\prod.tfvars
+copy environments\prod.backend.hcl.example environments\prod.backend.hcl
 
-# 4. See the app URL
+# 4. Provision dev
+terraform init -backend-config="environments/dev.backend.hcl"
+terraform plan -var-file="environments/dev.tfvars"
+terraform apply -var-file="environments/dev.tfvars"
+
+# 5. See the app URL
 terraform output app_url
+
+# 6. Destroy dev environment
+terraform destroy -var-file="environments/dev.tfvars"
+
 ```
 
 For automated deployment, set up the Azure DevOps pipeline

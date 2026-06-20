@@ -162,7 +162,8 @@ For automated deployment, set up the Azure DevOps pipeline
 
 ### Create the secret variable group
 1. Pipelines → **Library** → **+ Variable group** → name **`riskscore-secrets`**.
-2. Link the group to Key Vault
+2. Add variable **`RISKSHIELD_API_KEY`**, set its value, and click the **lock**
+   to mark it secret. (Best practice: link the group to Key Vault instead.)
 
 ### Set the state storage name
 Edit `pipelines/azure-pipelines.yml` → parameter `tfStateStorage` default → set it

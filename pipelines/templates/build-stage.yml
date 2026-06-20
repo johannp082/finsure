@@ -1,0 +1,84 @@
+# ──────────────────────────────────────────────────────────────────────────
+# Build stage template: test -> build image -> scan -> push to ACR.
+# Reused by the main pipeline. Parameters keep it environment-agnostic.
+# ──────────────────────────────────────────────────────────────────────────
+parameters:
+  - name: serviceConnection   # Azure Resource Manager service connection name
+    type: string
+  - name: resourceGroup       # RG that contains the ACR (deterministic name)
+    type: string
+  - name: imageRepository     # image name, e.g. riskscore
+    type: string
+    default: riskscore
+  - name: dependsOn
+    type: object
+    default: []
+  - name: vmImage
+    type: string
+    default: ubuntu-latest
+
+stages:
+  - stage: Build
+    displayName: "Build, test, scan & push"
+    dependsOn: ${{ parameters.dependsOn }}
+    jobs:
+      - job: build
+        displayName: "Build job"
+        pool:
+          vmImage: ${{ parameters.vmImage }}
+        steps:
+          # ── 1. Run automated tests ──────────────────────────────
+          - task: UsePythonVersion@0
+            inputs:
+              versionSpec: "3.13"
+            displayName: "Use Python 3.13"
+
+          - script: |
+              python -m pip install --upgrade pip
+              pip install -r requirements.txt -r requirements-dev.txt
+              pytest --junitxml=test-results.xml
+            workingDirectory: app
+            displayName: "Install deps & run tests"
+
+          - task: PublishTestResults@2
+            condition: succeededOrFailed()
+            inputs:
+              testResultsFiles: app/test-results.xml
+              testRunTitle: "pytest"
+            displayName: "Publish test results"
+
+          # ── 2. Build the Docker image & push to ACR ─────────────
+          # We fetch the ACR login server dynamically (its name has a random
+          # suffix from Terraform). The service connection authenticates az.
+          - task: AzureCLI@2
+            displayName: "Build, scan & push image"
+            inputs:
+              azureSubscription: ${{ parameters.serviceConnection }}
+              scriptType: bash
+              scriptLocation: inlineScript
+              inlineScript: |
+                set -euo pipefail
+                ACR_LOGIN_SERVER=$(az acr list -g "${{ parameters.resourceGroup }}" --query "[0].loginServer" -o tsv)
+                ACR_NAME=$(az acr list -g "${{ parameters.resourceGroup }}" --query "[0].name" -o tsv)
+                echo "Using ACR: $ACR_LOGIN_SERVER"
+
+                IMAGE="$ACR_LOGIN_SERVER/${{ parameters.imageRepository }}"
+                TAG="$(Build.BuildId)"
+
+                # Log in to ACR using the service principal (no static creds).
+                az acr login --name "$ACR_NAME"
+
+                docker build -t "$IMAGE:$TAG" -t "$IMAGE:latest" ./app
+
+                # ── 3. (Bonus) Scan the image for known vulnerabilities ──
+                # Trivy is non-blocking here (exit-code 0) but reports findings.
+                docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+                  aquasec/trivy:latest image --exit-code 0 --severity HIGH,CRITICAL \
+                  "$IMAGE:$TAG" || echo "Trivy scan reported findings (non-blocking)"
+
+                docker push "$IMAGE:$TAG"
+                docker push "$IMAGE:latest"
+
+                # Pass the tag to later stages.
+                echo "##vso[task.setvariable variable=imageTag;isOutput=true]$TAG"
+            name: buildPush

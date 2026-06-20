@@ -1,0 +1,76 @@
+# ──────────────────────────────────────────────────────────────────────────
+# Infrastructure stage template: terraform init -> plan -> apply.
+# Targets an Azure DevOps "Environment" so approvals/checks apply (e.g. a
+# manual approval gate on prod).
+# ──────────────────────────────────────────────────────────────────────────
+parameters:
+  - name: environmentName     # logical env: dev | prod
+    type: string
+  - name: serviceConnection
+    type: string
+  - name: tfStateRg
+    type: string
+  - name: tfStateStorage
+    type: string
+  - name: tfStateContainer
+    type: string
+    default: tfstate
+  - name: dependsOn
+    type: object
+    default: []
+  - name: vmImage
+    type: string
+    default: ubuntu-latest
+
+stages:
+  - stage: Infra_${{ parameters.environmentName }}
+    displayName: "Infrastructure (${{ parameters.environmentName }})"
+    dependsOn: ${{ parameters.dependsOn }}
+    jobs:
+      # A "deployment" job binds to an Environment -> approvals/checks run here.
+      - deployment: terraform
+        displayName: "Terraform apply (${{ parameters.environmentName }})"
+        pool:
+          vmImage: ${{ parameters.vmImage }}
+        environment: ${{ parameters.environmentName }}
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - checkout: self
+
+                - task: TerraformInstaller@1
+                  inputs:
+                    terraformVersion: latest
+                  displayName: "Install Terraform"
+
+                # Use the service connection's identity for BOTH the azurerm
+                # backend and provider by exporting ARM_* environment variables.
+                - task: AzureCLI@2
+                  displayName: "Terraform init/plan/apply"
+                  inputs:
+                    azureSubscription: ${{ parameters.serviceConnection }}
+                    scriptType: bash
+                    scriptLocation: inlineScript
+                    addSpnToEnvironment: true
+                    inlineScript: |
+                      set -euo pipefail
+                      export ARM_CLIENT_ID="$servicePrincipalId"
+                      export ARM_CLIENT_SECRET="$servicePrincipalKey"
+                      export ARM_TENANT_ID="$tenantId"
+                      export ARM_SUBSCRIPTION_ID="$(az account show --query id -o tsv)"
+
+                      cd terraform
+
+                      terraform init \
+                        -backend-config="resource_group_name=${{ parameters.tfStateRg }}" \
+                        -backend-config="storage_account_name=${{ parameters.tfStateStorage }}" \
+                        -backend-config="container_name=${{ parameters.tfStateContainer }}" \
+                        -backend-config="key=${{ parameters.environmentName }}.terraform.tfstate"
+
+                      terraform plan -input=false \
+                        -var-file="environments/${{ parameters.environmentName }}.tfvars" \
+                        -var="subscription_id=$ARM_SUBSCRIPTION_ID" \
+                        -out=tfplan
+
+                      terraform apply -input=false -auto-approve tfplan

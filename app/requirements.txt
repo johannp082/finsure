@@ -1,0 +1,10 @@
+# Runtime dependencies only (what the production container needs to run).
+# Pinned with ~= ("compatible release") so we get security patches but no surprise major upgrades.
+
+fastapi~=0.115           # Web framework: defines our REST API and validates input automatically
+uvicorn[standard]~=0.34  # ASGI server: actually runs the FastAPI app and serves HTTP
+httpx~=0.28              # Modern HTTP client: used to call the RiskShield API (supports timeouts/async)
+tenacity~=9.0            # Retry library: re-attempts failed calls with exponential backoff
+pydantic-settings~=2.6   # Loads & validates configuration from environment variables
+azure-identity~=1.19     # Lets the app authenticate to Azure (Managed Identity) to read Key Vault
+azure-keyvault-secrets~=4.9  # Reads the RiskShield API key from Azure Key Vault at runtime

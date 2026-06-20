@@ -1,0 +1,14 @@
+# Keep the Docker build context (and final image) small and secret-free.
+.env
+.env.*
+!.env.example
+tests/
+.pytest_cache/
+__pycache__/
+*.pyc
+.venv/
+venv/
+.coverage
+htmlcov/
+requirements-dev.txt
+*.md

@@ -1,0 +1,127 @@
+# ──────────────────────────────────────────────────────────────────────────
+# Deploy stage template: seed secret -> roll out image -> smoke test.
+# ──────────────────────────────────────────────────────────────────────────
+parameters:
+  - name: environmentName
+    type: string
+  - name: serviceConnection
+    type: string
+  - name: project
+    type: string
+  - name: workload
+    type: string
+  - name: imageRepository
+    type: string
+    default: riskscore
+  - name: buildResourceGroup   # RG whose ACR received the built image (the dev ACR)
+    type: string
+  - name: dependsOn
+    type: object
+    default: []
+  - name: vmImage
+    type: string
+    default: ubuntu-latest
+
+stages:
+  - stage: Deploy_${{ parameters.environmentName }}
+    displayName: "Deploy (${{ parameters.environmentName }})"
+    dependsOn: ${{ parameters.dependsOn }}
+    variables:
+      # Pull the image tag produced by the Build stage.
+      imageTag: $[ stageDependencies.Build.build.outputs['buildPush.imageTag'] ]
+      resourceGroup: "rg-${{ parameters.project }}-${{ parameters.workload }}-${{ parameters.environmentName }}"
+      containerApp: "ca-${{ parameters.project }}-${{ parameters.workload }}-${{ parameters.environmentName }}"
+    jobs:
+      - deployment: deploy
+        displayName: "Deploy to ${{ parameters.environmentName }}"
+        pool:
+          vmImage: ${{ parameters.vmImage }}
+        environment: ${{ parameters.environmentName }}
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - task: AzureCLI@2
+                  displayName: "Seed Key Vault secret (secure)"
+                  inputs:
+                    azureSubscription: ${{ parameters.serviceConnection }}
+                    scriptType: bash
+                    scriptLocation: inlineScript
+                    inlineScript: |
+                      set -euo pipefail
+                      # RISKSHIELD_API_KEY is a SECRET pipeline variable (from a
+                      # variable group, ideally linked to Key Vault). It is never
+                      # printed. Skip if not provided (e.g. mock-only runs).
+                      KV_NAME=$(az keyvault list -g "$(resourceGroup)" --query "[0].name" -o tsv)
+                      if [ -n "${RISKSHIELD_API_KEY:-}" ]; then
+                        az keyvault secret set --vault-name "$KV_NAME" \
+                          --name "riskshield-api-key" \
+                          --value "$RISKSHIELD_API_KEY" --output none
+                        echo "Secret updated in $KV_NAME"
+                      else
+                        echo "RISKSHIELD_API_KEY not set; leaving existing secret in place"
+                      fi
+                  env:
+                    RISKSHIELD_API_KEY: $(RISKSHIELD_API_KEY)
+
+                - task: AzureCLI@2
+                  displayName: "Roll out new image"
+                  inputs:
+                    azureSubscription: ${{ parameters.serviceConnection }}
+                    scriptType: bash
+                    scriptLocation: inlineScript
+                    inlineScript: |
+                      set -euo pipefail
+                      REPO="${{ parameters.imageRepository }}"
+                      TAG="$(imageTag)"
+
+                      TARGET_ACR_NAME=$(az acr list -g "$(resourceGroup)" --query "[0].name" -o tsv)
+                      TARGET_ACR_LOGIN=$(az acr list -g "$(resourceGroup)" --query "[0].loginServer" -o tsv)
+
+                      # If deploying to a DIFFERENT environment than the one we built
+                      # in, promote (import) the SAME image — never rebuild for prod.
+                      if [ "$(resourceGroup)" != "${{ parameters.buildResourceGroup }}" ]; then
+                        SOURCE_ACR_LOGIN=$(az acr list -g "${{ parameters.buildResourceGroup }}" --query "[0].loginServer" -o tsv)
+                        echo "Promoting $SOURCE_ACR_LOGIN/$REPO:$TAG -> $TARGET_ACR_LOGIN"
+                        az acr import --name "$TARGET_ACR_NAME" \
+                          --source "$SOURCE_ACR_LOGIN/$REPO:$TAG" \
+                          --image "$REPO:$TAG" --force
+                      fi
+
+                      IMAGE="$TARGET_ACR_LOGIN/$REPO:$TAG"
+                      echo "Deploying image: $IMAGE"
+
+                      az containerapp update \
+                        --name "$(containerApp)" \
+                        --resource-group "$(resourceGroup)" \
+                        --image "$IMAGE" --output none
+
+                - task: AzureCLI@2
+                  displayName: "Smoke test"
+                  inputs:
+                    azureSubscription: ${{ parameters.serviceConnection }}
+                    scriptType: bash
+                    scriptLocation: inlineScript
+                    inlineScript: |
+                      set -euo pipefail
+                      FQDN=$(az containerapp show --name "$(containerApp)" \
+                        --resource-group "$(resourceGroup)" \
+                        --query "properties.configuration.ingress.fqdn" -o tsv)
+                      BASE="https://$FQDN"
+                      echo "Smoke testing $BASE"
+
+                      # Give the new revision a moment to come up.
+                      sleep 20
+
+                      # 1. Health endpoint must return 200.
+                      code=$(curl -s -o /dev/null -w "%{http_code}" "$BASE/health")
+                      echo "GET /health -> $code"
+                      test "$code" = "200"
+
+                      # 2. /validate must return a 200 with a riskScore.
+                      resp=$(curl -s -X POST "$BASE/validate" \
+                        -H "Content-Type: application/json" \
+                        -d '{"firstName":"Jane","lastName":"Doe","idNumber":"9001011234088"}')
+                      echo "POST /validate -> $resp"
+                      echo "$resp" | grep -q "riskScore"
+                      echo "Smoke test passed ✅"

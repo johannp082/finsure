@@ -1,0 +1,104 @@
+# ══════════════════════════════════════════════════════════════════════════
+# CI/CD pipeline for the Vendor Payment Risk Scoring Integration.
+#
+# Flow:  Infra(dev) -> Build/Test/Scan/Push -> Deploy(dev)
+#                   -> Infra(prod, manual approval) -> Deploy(prod)
+#
+# We provision infrastructure before building so the ACR exists to receive the
+# image. The three required stage types (Build, Infrastructure, Deploy) are all
+# present and reused per environment via templates.
+#
+# PREREQUISITES (configure once in Azure DevOps — see docs/04-pipeline.md):
+#   - Service connection (Azure Resource Manager) named below.
+#   - Environments "dev" and "prod"; add a manual approval check on "prod".
+#   - Variable group "riskscore-secrets" with secret RISKSHIELD_API_KEY
+#     (ideally linked to Key Vault).
+#   - Edit the parameter defaults below (tfStateStorage especially).
+# ══════════════════════════════════════════════════════════════════════════
+
+parameters:
+  - name: serviceConnection
+    type: string
+    default: azure-finsure
+  - name: project
+    type: string
+    default: finsure
+  - name: workload
+    type: string
+    default: riskscore
+  - name: tfStateRg
+    type: string
+    default: rg-tfstate
+  - name: tfStateStorage
+    type: string
+    default: REPLACE_WITH_BOOTSTRAP_STORAGE_ACCOUNT
+  - name: tfStateContainer
+    type: string
+    default: tfstate
+
+# Secret values (RISKSHIELD_API_KEY) come from this variable group at runtime.
+variables:
+  - group: riskscore-secrets
+
+trigger:
+  branches:
+    include:
+      - main
+  paths:
+    include:
+      - app/**
+      - terraform/**
+      - pipelines/**
+
+pool:
+  vmImage: ubuntu-latest
+
+stages:
+  # ── DEV: infrastructure first so the ACR exists ───────────────────────────
+  - template: templates/infra-stage.yml
+    parameters:
+      environmentName: dev
+      serviceConnection: ${{ parameters.serviceConnection }}
+      tfStateRg: ${{ parameters.tfStateRg }}
+      tfStateStorage: ${{ parameters.tfStateStorage }}
+      tfStateContainer: ${{ parameters.tfStateContainer }}
+
+  # ── Build / test / scan / push (to the dev ACR) ───────────────────────────
+  - template: templates/build-stage.yml
+    parameters:
+      serviceConnection: ${{ parameters.serviceConnection }}
+      resourceGroup: rg-${{ parameters.project }}-${{ parameters.workload }}-dev
+      imageRepository: ${{ parameters.workload }}
+      dependsOn: [Infra_dev]
+
+  # ── Deploy to dev + smoke test ────────────────────────────────────────────
+  - template: templates/deploy-stage.yml
+    parameters:
+      environmentName: dev
+      serviceConnection: ${{ parameters.serviceConnection }}
+      project: ${{ parameters.project }}
+      workload: ${{ parameters.workload }}
+      imageRepository: ${{ parameters.workload }}
+      buildResourceGroup: rg-${{ parameters.project }}-${{ parameters.workload }}-dev
+      dependsOn: [Build, Infra_dev]
+
+  # ── PROD: infrastructure (manual approval gate on the "prod" environment) ──
+  - template: templates/infra-stage.yml
+    parameters:
+      environmentName: prod
+      serviceConnection: ${{ parameters.serviceConnection }}
+      tfStateRg: ${{ parameters.tfStateRg }}
+      tfStateStorage: ${{ parameters.tfStateStorage }}
+      tfStateContainer: ${{ parameters.tfStateContainer }}
+      dependsOn: [Deploy_dev]
+
+  # ── Deploy to prod (promotes the SAME image) + smoke test ─────────────────
+  - template: templates/deploy-stage.yml
+    parameters:
+      environmentName: prod
+      serviceConnection: ${{ parameters.serviceConnection }}
+      project: ${{ parameters.project }}
+      workload: ${{ parameters.workload }}
+      imageRepository: ${{ parameters.workload }}
+      buildResourceGroup: rg-${{ parameters.project }}-${{ parameters.workload }}-dev
+      dependsOn: [Build, Infra_prod]

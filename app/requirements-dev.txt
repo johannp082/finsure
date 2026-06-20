@@ -1,0 +1,9 @@
+# Development & testing dependencies (NOT shipped in the production container).
+# Install with:  pip install -r requirements.txt -r requirements-dev.txt
+
+-r requirements.txt      # include the runtime deps too, so a dev has everything
+
+pytest~=8.3              # Test runner
+pytest-asyncio~=0.24     # Lets pytest run async test functions
+respx~=0.21              # Mocks httpx HTTP calls so we can test without a real RiskShield API
+httpx~=0.28              # (already runtime) used by FastAPI's TestClient as well

@@ -112,8 +112,7 @@ curl -X POST http://127.0.0.1:8000/validate -H "Content-Type: application/json" 
   -d '{"firstName":"Jane","lastName":"Doe","idNumber":"9001011234088"}'
 ```
 
-Run the tests: `pytest` (from `app/`). Run in Docker: see
-[`docs/02-docker.md`](docs/02-docker.md).
+Run the tests: `pytest` (from `app/`). Run in Docker
 
 ---
 
@@ -140,6 +139,42 @@ terraform output app_url
 
 For automated deployment, set up the Azure DevOps pipeline
 
+### Create the service connection
+1. Project Settings → **Service connections** → New → **Azure Resource Manager**.
+2. Choose **Workload identity federation (automatic)** (most secure) or service
+   principal. Scope it to your subscription.
+3. Name it **`azure-finsure`** (matches the pipeline default).
+
+### Create the Environments + prod approval
+1. Pipelines → **Environments** → New → name it **`dev`**. Repeat for **`prod`**.
+2. Open **prod** → ⋯ → **Approvals and checks** → **Approvals** → add yourself.
+   *This is what enforces "manual approval for prod".*
+
+### Create the secret variable group
+1. Pipelines → **Library** → **+ Variable group** → name **`riskscore-secrets`**.
+2. Link the group to Key Vault
+
+### Set the state storage name
+Edit `pipelines/azure-pipelines.yml` → parameter `tfStateStorage` default → set it
+to the storage account name from the bootstrap output.
+
+### Create the pipeline
+1. Pipelines → **New pipeline** → choose your repo.
+2. **Existing Azure Pipelines YAML file** → select `/pipelines/azure-pipelines.yml`.
+3. Run it. Approve the prod stage when prompted.
+
+---
+
+## 4. Security in the pipeline (what's evaluated)
+
+- **No static credentials**: auth via service connection (federated identity).
+- **Secret handling**: `RISKSHIELD_API_KEY` is a secret variable, masked in logs,
+  written straight to Key Vault — never echoed.
+- **Image scanning**: Trivy scans for HIGH/CRITICAL CVEs before deploy.
+- **Separate environments**: isolated dev/prod with their own state, infra, and
+  approval gates.
+- **Promote, don't rebuild**: the exact tested image is imported to prod, so what
+  you tested is what you ship.
 
 ---
 

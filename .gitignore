@@ -50,6 +50,8 @@ htmlcov/
 .DS_Store
 Thumbs.db
 *.swp
+**/.cursor/*
+**/.cursor-plugin/*
 
 # ─────────────────────────────────────────────────────────────
 # Docker
